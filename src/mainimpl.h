@@ -118,6 +118,7 @@ protected slots:
 	void ActCommit_activated();
 	void ActAmend_activated();
 	void ActCheckout_activated();
+	void ActRevertCommit_activated();
 	void ActBranch_activated();
 	void ActTag_activated();
 	void ActDelete_activated();

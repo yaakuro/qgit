@@ -154,17 +154,15 @@ MainImpl::MainImpl(SCRef cd, QWidget* p) : QMainWindow(p) {
 	connect(treeView, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)),
 	        this, SLOT(treeView_doubleClicked(QTreeWidgetItem*, int)));
 
-	// use most recent repo as startup dir if it exists and user opted to do so
-	QStringList recents(settings.value(REC_REP_KEY).toStringList());
-	QDir checkRepo;
-	if (	recents.size() >= 1
-		 && testFlag(REOPEN_REPO_F, FLAGS_KEY)
-		 && checkRepo.exists(recents.at(0)))
-	{
-		startUpDir = recents.at(0);
-	}
-	else {
-		startUpDir = (cd.isEmpty() ? QDir::current().absolutePath() : cd);
+	// If enabled in settings, open last opened repository.
+	if(testFlag(REOPEN_REPO_F, FLAGS_KEY)) {
+		const QStringList recents(settings.value(REC_REP_KEY).toStringList());
+		if(!recents.empty() ) {
+			const QDir checkRepo(recents.at(0));
+			if(checkRepo.exists()) {
+				startUpDir = recents.at(0);
+			}
+		}
 	}
 
 	// handle --view-file=* or --view-file * argument
@@ -181,6 +179,8 @@ MainImpl::MainImpl(SCRef cd, QWidget* p) : QMainWindow(p) {
 		else if (arg.startsWith("--view-file="))
 			startUpFile = arg.mid(12);
 	}
+
+	connect(ActRevertCommit, SIGNAL(triggered()), this, SLOT(ActRevertCommit_activated()));
 
 	// MainImpl c'tor is called before to enter event loop,
 	// but some stuff requires event loop to init properly
@@ -549,6 +549,7 @@ void MainImpl::updateContextActions(SCRef newRevSha, SCRef newFileName,
 	}
 	ActMarkDiffToSha->setEnabled(newRevSha != ZERO_SHA);
 	ActCheckout->setEnabled(found && (newRevSha != ZERO_SHA) && !isUnApplied);
+	ActRevertCommit->setEnabled(found && (newRevSha != ZERO_SHA) && !isUnApplied);
 	ActBranch->setEnabled(found && (newRevSha != ZERO_SHA) && !isUnApplied);
 	ActTag->setEnabled(found && (newRevSha != ZERO_SHA) && !isUnApplied);
 	ActDelete->setEnabled(ref_type != 0);
@@ -1373,6 +1374,8 @@ void MainImpl::doContexPopup(SCRef sha) {
 			contextMenu.addAction(ActCommit);
 		if (ActCheckout->isEnabled())
 			contextMenu.addAction(ActCheckout);
+		if(ActRevertCommit->isEnabled())
+			contextMenu.addAction(ActRevertCommit);
 		if (ActBranch->isEnabled())
 			contextMenu.addAction(ActBranch);
 		if (ActTag->isEnabled())
@@ -1873,6 +1876,18 @@ void MainImpl::ActCheckout_activated()
 	cmd.append(" ").append(rev);
 	QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 	if (!git->run(cmd)) statusBar()->showMessage("Failed to checkout " + rev);
+	refreshRepo(true);
+	QApplication::restoreOverrideCursor();
+}
+
+void MainImpl::ActRevertCommit_activated() {
+	const QString sha = lineEditSHA->text(), rev = sha;
+	QString cmd = "git revert ";
+	cmd.append(" ").append(sha);
+
+	if (!git->run(cmd)){
+		statusBar()->showMessage("Failed to checkout " + rev);
+	}
 	refreshRepo(true);
 	QApplication::restoreOverrideCursor();
 }
